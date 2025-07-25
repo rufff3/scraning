@@ -1,0 +1,683 @@
+import pyfiglet
+from colorama import Fore, Style, init
+init(autoreset=True)
+import os
+import re
+import sys
+import json
+import time
+import pyfiglet
+import requests
+from web3 import Web3
+from eth_account import Account
+from tronpy import Tron
+from tronpy.keys import PrivateKey as TronPrivateKey
+from mnemonic import Mnemonic
+from bip44 import Wallet
+from decimal import Decimal
+import warnings
+import base58
+from solana.rpc.api import Client
+from solana.rpc.commitment import Confirmed
+from solana.transaction import Transaction
+from solana.keypair import Keypair
+from solana.publickey import PublicKey
+from solana.system_program import transfer, TransferParams
+from spl.token.instructions import (
+    create_associated_token_account,
+    get_associated_token_address,
+    transfer as spl_transfer,
+    TransferParams as SplTransferParams,
+    TOKEN_PROGRAM_ID
+)
+
+warnings.filterwarnings("ignore")
+Account.enable_unaudited_hdwallet_features()
+
+PHRASE_FILE = "phrases.txt"
+INVALID_MNEMONIC_FILE = "invalid_mnemonics.txt"
+EVM_OUTPUT_FILE_PREFIX = "wallet_berisi_"
+PRIVATEKEY_EVM_FILE = "privatekeyevmgarapan.txt"
+PRIVATEKEY_TRON_FILE = "privatekeytron.txt"
+PRIVATEKEY_SOL_FILE = "privatekeysol.txt"
+ADDR_EVM_OUT = "addresevm.txt"
+ADDR_TRON_OUT = "addrestron.txt"
+ADDR_SOL_OUT = "addressol.txt"
+
+TRONGRID_API_KEY = "279c0e80-a20c-49f1-9142-b7c0c9837fc"
+HELIUS_API_KEY = "53076adb-4f6e-405b-ac56-cac1bf268ce6" # <-- WAJIB DIISI UNTUK NAMA TOKEN
+
+os.environ['TRONGRID_API_KEY'] = TRONGRID_API_KEY
+EVM_NETWORKS = {
+    "ethereum": "https://eth-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "bsc": "https://bnb-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "polygon": "https://polygon-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "arbitrum": "https://arb-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "optimism": "https://opt-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "avalanche": "https://avax-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "base": "https://base-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "linea": "https://rpc.linea.build", "zksync": "https://mainnet.era.zksync.io", "scroll": "https://rpc.scroll.io", "blast": "https://rpc.blast.io"
+}
+RPC_URL_SOL = "https://api.mainnet-beta.solana.com"
+solana_client = Client(RPC_URL_SOL)
+BLOCK_EXPLORER_URLS = {
+    "ethereum": "https://etherscan.io/tx/", "bsc": "https://bscscan.com/tx/", "polygon": "https://polygonscan.com/tx/", "arbitrum": "https://arbiscan.io/tx/", "optimism": "https://optimistic.etherscan.io/tx/", "avalanche": "https://snowtrace.io/tx/", "base": "https://basescan.org/tx/", "tron": "https://tronscan.org/#/transaction/", "solana": "https://solscan.io/tx/", "linea": "https://lineascan.build/tx/", "zksync": "https://explorer.zksync.io/tx/", "scroll": "https://scrollscan.com/tx/", "blast": "https://blastscan.io/tx/"
+}
+ERC20_ABI = json.loads('[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function"}]')
+
+def is_valid_mnemonic_length(words):
+    return len(words) in [12, 15, 18, 21, 24]
+
+def write_to_file(filename, content):
+    with open(filename, 'a', encoding='utf-8') as f:
+        f.write(content + "\n")
+
+def load_lines(filename):
+    if not os.path.exists(filename):
+        print(Fore.RED + f"❌ File '{filename}' tidak ditemukan.")
+        return []
+    with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
+        return [line.strip() for line in f if line.strip()]
+
+def load_and_clean_phrases(file_path=PHRASE_FILE, show_detail=False):
+    try:
+        with open(file_path, "r", encoding='utf-8', errors='ignore') as f:
+            lines = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        print(Fore.RED + f"❌ Error: File '{file_path}' tidak ditemukan. Pastikan ada.")
+        return []
+    except Exception as e:
+        print(Fore.RED + f"❌ Error: Gagal membaca file '{file_path}': {e}")
+        return []
+    cleaned_mnemonics = []
+    invalid_mnemonics_buffer = []
+    if show_detail: print(f"\n--- Memulai validasi mnemonic dari '{file_path}' ---")
+    for line_num, line in enumerate(lines, 1):
+        original_line = line
+        if ':' in line: line = line.split(":", 1)[1].strip()
+        words = line.split()
+        if not words: continue
+        try:
+            if not is_valid_mnemonic_length(words): raise ValueError(f"Panjang mnemonic tidak valid ({len(words)} kata).")
+            mnemo = Mnemonic("english")
+            if not mnemo.check(line): raise ValueError("Checksum mnemonic tidak valid.")
+            cleaned_mnemonics.append(line)
+            if show_detail: print(f"✅ Baris {line_num}: Mnemonic valid ({len(words)} kata): {line[:50]}...")
+        except Exception as e:
+            error_message = f"Baris {line_num}: '{original_line}' -> Error: {e}"
+            invalid_mnemonics_buffer.append(error_message)
+            if show_detail: print(f"⚠️ Baris {line_num}: Mnemonic tidak valid: '{original_line[:50]}...' -> {e}")
+    if invalid_mnemonics_buffer:
+        print(Fore.RED + f"\n--- Ditemukan {len(invalid_mnemonics_buffer)} mnemonic tidak valid. ---")
+        print(Fore.RED + f"Detail mnemonic yang tidak valid disimpan ke '{INVALID_MNEMONIC_FILE}'")
+        for inv_mnemonic in invalid_mnemonics_buffer: write_to_file(INVALID_MNEMONIC_FILE, inv_mnemonic)
+        if show_detail: print("-" * 40)
+    elif show_detail: print("\n🎉 Semua mnemonic di file valid!")
+    if show_detail: print(f"\n📦 Total mnemonic valid yang dimuat: {len(cleaned_mnemonics)}")
+    return cleaned_mnemonics
+
+def get_spl_token_info(mint_address: str) -> dict:
+    """Fungsi deteksi nama token yang canggih menggunakan Helius."""
+    if not HELIUS_API_KEY or len(HELIUS_API_KEY) < 10:
+        print(Fore.YELLOW + "⚠️ Peringatan: Kunci API Helius belum diatur. Nama token tidak akan akurat.")
+        return {"name": f"Token-{mint_address[:4]}", "symbol": f"TKN-{mint_address[:4]}"}
+    api_url = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+    headers = {'Content-Type': 'application/json'}
+    payload = {"jsonrpc": "2.0", "id": "helius-test", "method": "getAsset", "params": {"id": mint_address}}
+    try:
+        response = requests.post(api_url, headers=headers, json=payload, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        content = data.get('result', {}).get('content', {})
+        metadata = content.get('metadata', {})
+        if metadata and metadata.get('symbol'):
+            return {"name": metadata.get("name", f"Token-{mint_address[:4]}"), "symbol": metadata.get("symbol", f"TKN-{mint_address[:4]}")}
+        else:
+          
+            return {"name": f"Token Unnamed", "symbol": f"{mint_address[:4]}..."}
+    except Exception as e:
+        print(Fore.RED + f" Gagal mengambil metadata dari Helius: {e}")
+        return {"name": f"Token Unnamed", "symbol": f"{mint_address[:4]}..."}
+
+def generate_wallet_private_key_sol(count):
+    print(Fore.MAGENTA + f"\nGenerasi {count} private key Solana...")
+    with open(PRIVATEKEY_SOL_FILE, "a", encoding='utf-8') as f:
+        for _ in range(count):
+  
+            f.write(f"{base58.b58encode(Keypair().secret_key).decode('utf-8')}\n")
+    print(Fore.GREEN + f"✅ {count} private key Solana telah disimpan ke {PRIVATEKEY_SOL_FILE}\n")
+
+def scan_private_keys_sol_new():
+    print(Fore.CYAN + "\n[🔍] Memeriksa Private Key Solana dan mendapatkan alamatnya:")
+    private_keys = load_lines(PRIVATEKEY_SOL_FILE)
+    if not private_keys: return
+    with open(ADDR_SOL_OUT, 'w', encoding='utf-8') as f:
+        for i, pk_b58 in enumerate(private_keys, 1):
+            try:
+               
+                keypair = Keypair.from_secret_key(base58.b58decode(pk_b58))
+                address = str(keypair.public_key)
+                print(Fore.GREEN + f"[{i}] ✅ PrivateKey: {pk_b58[:15]}... | Address: {address}")
+                f.write(address + "\n")
+            except Exception as e:
+                print(Fore.RED + f"[{i}] ❌ Private Key Solana tidak valid: {pk_b58[:15]}... | Error: {e}")
+    print(Fore.CYAN + f"\n📁 Alamat Solana disimpan ke: {ADDR_SOL_OUT}")
+
+def cek_saldo_sol(client: Client, address: str):
+    try:
+        wallet_pubkey = PublicKey(address)
+        balance_resp = client.get_balance(wallet_pubkey)
+        balance_sol = balance_resp['result']['value'] / 1_000_000_000
+        print(Fore.GREEN + f"\n✅ Informasi Saldo SOL\n==========================\nAlamat: {address}\nSaldo : {balance_sol:.9f} SOL\n==========================")
+    except Exception as e:
+        print(Fore.RED + f"❌ Gagal memeriksa saldo SOL: {e}")
+
+def cek_saldo_spl(client: Client, wallet_address: str, token_mint_address: str):
+    try:
+        wallet_pubkey = PublicKey(wallet_address)
+        token_mint_pubkey = PublicKey(token_mint_address)
+        ata = get_associated_token_address(wallet_pubkey, token_mint_pubkey)
+        balance_resp = client.get_token_account_balance(ata)
+        balance_data = balance_resp['result']['value']
+        balance = int(balance_data['amount']) / (10 ** balance_data['decimals'])
+        print(Fore.GREEN + f"\n✅ Informasi Saldo Token SPL\n===================================\nAlamat Wallet: {wallet_address}\nAlamat Mint Token: {token_mint_address}\nSaldo Token: {balance}\n===================================")
+    except Exception:
+        print(Fore.RED + "\n❌ Gagal memeriksa saldo token SPL. Pastikan alamat benar atau wallet belum pernah memiliki token tsb.")
+
+def scan_sol_balance_massal(client: Client):
+    print(Fore.CYAN + "\n--- Scan Saldo SOL Massal ---")
+    private_keys = load_lines(PRIVATEKEY_SOL_FILE)
+    if not private_keys:
+        print(Fore.YELLOW + f"⚠️ Proses dihentikan karena tidak ada data di '{PRIVATEKEY_SOL_FILE}'.")
+        input(Fore.GREEN + "Tekan Enter untuk kembali ke menu...")
+        return
+    print(Fore.CYAN + f"🚀 Memulai scan saldo SOL untuk {len(private_keys)} wallet dari '{PRIVATEKEY_SOL_FILE}'...")
+    wallets_with_sol = []
+    output_filename = "wallet_berisi_sol.txt"
+    if os.path.exists(output_filename):
+        os.remove(output_filename)
+    for i, pk_b58 in enumerate(private_keys, 1):
+        try:
+            keypair = Keypair.from_secret_key(base58.b58decode(pk_b58))
+            address = keypair.public_key
+            balance_resp = client.get_balance(address)
+            balance_sol = balance_resp['result']['value'] / 1_000_000_000
+            status = "✅" if balance_sol > 0 else " "
+            print(f"[{i}] {status} {address} : {balance_sol:.9f} SOL")
+            if balance_sol > 0:
+                wallets_with_sol.append(f"PrivateKey: {pk_b58} | Address: {address} | Balance: {balance_sol:.9f} SOL")
+            time.sleep(0.5)
+        except Exception as e:
+            print(Fore.RED + f"[{i}] ⚠️ Gagal memproses key: {pk_b58[:15]}... | Error: {e}")
+    if wallets_with_sol:
+        print(Fore.MAGENTA + f"\n--- Ditemukan {len(wallets_with_sol)} wallet dengan saldo SOL > 0 ---")
+        write_to_file(output_filename, "\n".join(wallets_with_sol))
+        print(Fore.GREEN + f"✅ Detail disimpan ke {output_filename}")
+    else:
+        print(Fore.MAGENTA + "\n📭 Tidak ada wallet dengan saldo SOL yang ditemukan.")
+
+def scan_spl_token_massal(client: Client):
+    print(Fore.CYAN + "\n--- Scan Saldo Token SPL Massal ---")
+    token_mint_address = input("Masukkan alamat MINT token SPL yang ingin di-scan: ").strip()
+    if not token_mint_address:
+        print(Fore.MAGENTA + "Alamat mint tidak boleh kosong.")
+        return
+    private_keys = load_lines(PRIVATEKEY_SOL_FILE)
+    if not private_keys:
+        print(Fore.YELLOW + f"⚠️ Proses dihentikan karena tidak ada data di '{PRIVATEKEY_SOL_FILE}'.")
+        input(Fore.GREEN + "Tekan Enter untuk kembali ke menu...")
+        return
+    try:
+        token_mint_pubkey = PublicKey(token_mint_address)
+        print("ℹ️ Mengambil info token dari internet...")
+        token_info = get_spl_token_info(token_mint_address)
+        token_symbol = token_info['symbol']
+        token_name = token_info['name']
+        print(Fore.GREEN + f"✅ Token teridentifikasi: {token_name} ({token_symbol})")
+    except Exception as e:
+        print(Fore.RED + f"❌ Alamat mint token tidak valid: {e}")
+        return
+    print(Fore.CYAN + f"🚀 Memulai scan token {token_symbol} untuk {len(private_keys)} wallet...")
+    wallets_with_spl = []
+    output_filename = f"wallet_berisi_{token_symbol.lower().replace(' ', '_')}_solana.txt"
+    if os.path.exists(output_filename):
+        os.remove(output_filename)
+    for i, pk_b58 in enumerate(private_keys, 1):
+        try:
+            keypair = Keypair.from_secret_key(base58.b58decode(pk_b58))
+            wallet_pubkey = keypair.public_key
+            associated_token_address = get_associated_token_address(wallet_pubkey, token_mint_pubkey)
+            balance = 0.0
+            status = " "
+            try:
+                balance_resp = client.get_token_account_balance(associated_token_address)
+                balance_data = balance_resp['result']['value']
+                decimals = balance_data['decimals']
+                balance = int(balance_data['amount']) / (10 ** decimals)
+                if balance > 0:
+                    status = "✅"
+                    wallets_with_spl.append(f"PrivateKey: {pk_b58} | Address: {wallet_pubkey} | Balance: {balance} {token_symbol} | Mint: {token_mint_address} | Decimals: {decimals}")
+            except Exception: 
+                pass
+            print(Fore.MAGENTA + f"[{i}] {status} {wallet_pubkey} : {balance} {token_symbol}")
+            time.sleep(0.5)
+        except Exception as e:
+            print(Fore.RED + f"[{i}] ⚠️ Gagal memproses key: {pk_b58[:15]}... | Error: {e}")
+    if wallets_with_spl:
+        print(Fore.MAGENTA + f"\n--- Ditemukan {len(wallets_with_spl)} wallet dengan saldo {token_symbol} > 0 ---")
+        write_to_file(output_filename, "\n".join(wallets_with_spl))
+        print(Fore.GREEN + f"✅ Detail disimpan ke {output_filename}")
+    else:
+        print(Fore.MAGENTA + f"\n📭 Tidak ada wallet dengan saldo {token_symbol} yang ditemukan.")
+
+def _perform_solana_send(client: Client, sender_keypair: Keypair, recipient_address: str, amount: float, token_info: dict):
+    """Fungsi inti untuk mengirim token, diambil dari skrip yang SUDAH BERHASIL."""
+    sender_pubkey = sender_keypair.public_key
+    try:
+        recipient_pubkey = PublicKey(recipient_address)
+        
+        blockhash_resp = client.get_latest_blockhash(commitment=Confirmed)
+        if 'result' not in blockhash_resp or 'value' not in blockhash_resp['result'] or 'blockhash' not in blockhash_resp['result']['value']:
+            print(Fore.RED + f"❌ Gagal mendapatkan blockhash yang valid: {blockhash_resp}")
+            return
+        recent_blockhash = blockhash_resp['result']['value']['blockhash']
+        
+        txn = Transaction(recent_blockhash=recent_blockhash, fee_payer=sender_pubkey)
+
+        if token_info['type'] == 'SOL':
+            lamports_to_send = int(amount * 1_000_000_000)
+            fee = 5000
+            if lamports_to_send <= fee:
+                print(Fore.RED + f"❌ Gagal: Saldo {amount} SOL tidak cukup untuk membayar biaya transaksi.")
+                return
+            lamports_to_send -= fee
+            txn.add(transfer(TransferParams(from_pubkey=sender_pubkey, to_pubkey=recipient_pubkey, lamports=lamports_to_send)))
+        
+        elif token_info['type'] == 'SPL':
+            mint_pubkey = PublicKey(token_info['mint'])
+            decimals = int(token_info['decimals'])
+            source_ata = get_associated_token_address(sender_pubkey, mint_pubkey)
+            dest_ata = get_associated_token_address(recipient_pubkey, mint_pubkey)
+            
+            dest_account_info_resp = client.get_account_info(dest_ata)
+            dest_info = dest_account_info_resp.get('result', {}).get('value')
+            
+            if dest_info is None:
+                print(f"ℹ️ Membuat akun token untuk penerima...")
+                txn.add(create_associated_token_account(payer=sender_pubkey, owner=recipient_pubkey, mint=mint_pubkey))
+
+            txn.add(spl_transfer(
+                SplTransferParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    source=source_ata,
+                    dest=dest_ata,
+                    owner=sender_pubkey,
+                    amount=int(amount * (10**decimals))
+                )
+            ))
+        
+        response = client.send_transaction(txn, sender_keypair)
+        
+        if 'result' in response:
+            tx_signature = response['result']
+            print(Fore.GREEN + f"✅ Transaksi Terkirim! Sejumlah {amount} {token_info['symbol']} ke {recipient_address}")
+            print(f"   Verifikasi: {BLOCK_EXPLORER_URLS['solana']}{tx_signature}")
+        elif 'error' in response:
+            error_message = response['error'].get('message', str(response['error']))
+            print(Fore.RED + f"❌ Gagal mengirim: {error_message}")
+        else:
+            print(Fore.RED + f"❌ Gagal mengirim dengan respons tidak dikenal: {response}")
+
+    except Exception as e:
+        print(Fore.RED + f"❌ Gagal mempersiapkan transaksi dari {sender_pubkey}: {e}")
+
+def send_detected_tokens_solana():
+    print(Fore.MAGENTA + "\n=== Kirim Token SOLANA dari Wallet yang Terdeteksi ===")
+    solana_files = [f for f in os.listdir(".") if f.startswith("wallet_berisi_") and f.endswith(("_sol.txt", "_solana.txt"))]
+    if not solana_files:
+        print(Fore.RED + "❌ Tidak ada file hasil scan Solana ditemukan.")
+        return
+    print(Fore.CYAN + "\nPilih file hasil scan:")
+    for idx, fname in enumerate(solana_files, 1): print(f"{idx}. {fname}")
+    try:
+        choice_idx = int(input("Masukkan nomor pilihan: ")) - 1
+        file_to_process = solana_files[choice_idx]
+        target_address = input("Masukkan alamat tujuan Solana: ").strip()
+        PublicKey(target_address) # Validasi alamat
+        print(Fore.CYAN + f"\n--- Memproses file: {file_to_process} ---")
+        lines = load_lines(file_to_process)
+        for line in lines:
+            try:
+                parts = {k.strip(): v.strip() for k, v in (p.split(':', 1) for p in line.split('|'))}
+                pk_b58 = parts['PrivateKey']
+                keypair = Keypair.from_secret_key(base58.b58decode(pk_b58))
+                balance_str = parts['Balance'].split()
+                amount = float(balance_str[0])
+                symbol = balance_str[1]
+                token_info = {}
+                if "sol.txt" in file_to_process:
+                    token_info = {'type': 'SOL', 'symbol': 'SOL'}
+                else:
+                    token_info = {'type': 'SPL', 'symbol': symbol, 'mint': parts['Mint'], 'decimals': parts['Decimals']}
+                print(Fore.MAGENTA + f"\nMengirim {amount} {token_info['symbol']} dari {keypair.public_key}...")
+                _perform_solana_send(solana_client, keypair, target_address, amount, token_info)
+                time.sleep(5)
+            except Exception as e:
+                print(Fore.RED + f"⚠️ Gagal memproses baris: '{line}'. Error: {e}")
+    except (ValueError, IndexError):
+        print(Fore.RED + "❌ Pilihan atau alamat tidak valid.")
+    except Exception as e:
+        print(f"Terjadi kesalahan: {e}")
+
+def cek_semua_rpc():
+    print(Fore.CYAN + "\n🔌 Mengecek koneksi ke semua jaringan EVM...\n")
+    gagal_evm = []
+    for name, url in EVM_NETWORKS.items():
+        try:
+            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={'timeout': 10}))
+            if w3.is_connected(): print(f"🟢 {name.upper():<10} - Terhubung (Block #{w3.eth.block_number})")
+            else:
+                print(Fore.RED + f"🔴 {name.upper():<10} - GAGAL koneksi: RPC tidak merespons.")
+                gagal_evm.append(name)
+        except Exception as e:
+            print(Fore.RED + f"🔴 {name.upper():<10} - Error tak terduga: {str(e)}")
+            gagal_evm.append(name)
+    if not gagal_evm: print("\n✅ Semua RPC EVM aman!")
+    else: print(f"\n⚠️ Ada {len(gagal_evm)} jaringan EVM yang gagal terhubung: {', '.join(gagal_evm)}")
+    print(Fore.CYAN + "\n🔌 Mengecek koneksi ke jaringan TRON & SOLANA...\n")
+    try:
+        client_tron = Tron()
+        _ = client_tron.get_latest_block()
+        print(Fore.GREEN + "🟢 TRON - Terhubung")
+    except Exception as e:
+        print(Fore.RED + f"🔴 TRON - GAGAL koneksi: {e}")
+    try:
+        block_height_resp = solana_client.get_block_height()
+        print(Fore.GREEN + f"🟢 SOLANA - Terhubung (Block #{block_height_resp['result']})")
+    except Exception as e:
+        print(Fore.RED + f"🔴 SOLANA - GAGAL koneksi: {e}")
+    print("\n")
+
+def scan_custom_token_evm():
+    print(Fore.CYAN + "\n--- Scan Token Kustom di Jaringan EVM ---")
+    for i, (chain, rpc) in enumerate(EVM_NETWORKS.items(), 1): print(f"{i}. {chain.upper()}")
+    try:
+        idx_choice = int(input("Masukkan nomor jaringan: ")) - 1
+        chain_name = list(EVM_NETWORKS.keys())[idx_choice]
+        rpc_url = EVM_NETWORKS[chain_name]
+    except (ValueError, IndexError):
+        print(Fore.RED + "Input tidak valid.")
+        return
+    w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': 60}))
+    if not w3.is_connected():
+        print(Fore.RED + f"❌ Gagal koneksi ke jaringan {chain_name}.")
+        return
+    contract_input = input("Masukkan alamat smart contract token: ").strip()
+    try:
+        checksum_address = w3.to_checksum_address(contract_input)
+        token_contract = w3.eth.contract(address=checksum_address, abi=ERC20_ABI)
+        token_name = token_contract.functions.name().call()
+        token_decimals = token_contract.functions.decimals().call()
+        print(f"\n🪙 Token Ditemukan: {token_name} (decimals: {token_decimals})\n")
+    except Exception as e:
+        print(Fore.RED + f"❌ Gagal membaca kontrak token: {e}")
+        return
+    print(Fore.MAGENTA + "\nPilih Sumber Data Wallet:\n1. Dari Mnemonic (phrases.txt)\n2. Dari Private Keys (privatekeyevmgarapan.txt)")
+    source_choice = input("Pilih sumber (1/2): ").strip()
+    wallets_for_scan = []
+    if source_choice == "1":
+        phrases = load_and_clean_phrases()
+        if not phrases: return
+        for i, phrase in enumerate(phrases):
+            try:
+                acct = Account.from_mnemonic(phrase)
+                wallets_for_scan.append({"address": acct.address, "private_key": "0x" + acct.key.hex(), "index": i + 1})
+            except Exception as e: write_to_file(INVALID_MNEMONIC_FILE, f"INVALID MNEMONIC: {phrase} -> {e}")
+    elif source_choice == "2":
+        keys = load_lines(PRIVATEKEY_EVM_FILE)
+        if not keys: return
+        for i, pk_hex in enumerate(keys):
+            try:
+                acct = Account.from_key(pk_hex)
+                wallets_for_scan.append({"private_key": pk_hex, "address": acct.address, "index": i + 1})
+            except Exception as e: write_to_file(INVALID_MNEMONIC_FILE, f"INVALID EVM KEY: {pk_hex} -> {e}")
+    else:
+        print(Fore.RED + "Pilihan tidak valid.")
+        return
+    if not wallets_for_scan:
+        print(Fore.CYAN + "Tidak ada wallet yang bisa di-scan.")
+        return
+    wallets_with_token = []
+    output_filename = f"{EVM_OUTPUT_FILE_PREFIX}{token_name.lower().replace(' ', '_')}_{chain_name}.txt"
+    if os.path.exists(output_filename):
+        os.remove(output_filename)
+    print(Fore.CYAN + f"\n🚀 Memulai scan {token_name} untuk {len(wallets_for_scan)} wallet...\n")
+    for wallet in wallets_for_scan:
+        try:
+            balance = token_contract.functions.balanceOf(wallet['address']).call() / (10 ** token_decimals)
+            status_indicator = "✅" if balance > 0 else " "
+            print(Fore.MAGENTA + f"[{wallet['index']}] {status_indicator} {wallet['address']} : {balance:.4f} {token_name}")
+            if balance > 0: wallets_with_token.append({"private_key": wallet['private_key'], "address": wallet['address'], "balance": balance, "token_name": token_name, "token_contract_address": checksum_address, "token_decimals": token_decimals, "chain": chain_name})
+        except Exception as e: print(f"[{wallet['index']}] ⚠️ Gagal memproses wallet {wallet['address']}: {e}")
+        time.sleep(1)
+    if wallets_with_token:
+        print(Fore.MAGENTA + f"\n--- Ditemukan {len(wallets_with_token)} wallet dengan {token_name} > 0 ---")
+        with open(output_filename, "w", encoding='utf-8') as f:
+            for data in wallets_with_token: f.write(f"Private Key: {data['private_key']} | Address: {data['address']} | Balance: {data['balance']:.4f} {data['token_name']} | Contract: {data['token_contract_address']} | Decimals: {data['token_decimals']} | Jaringan: {data['chain']}\n")
+        print(Fore.GREEN + f"✅ Detail disimpan ke {output_filename}\n")
+    else: print("\n📭 Tidak ada wallet dengan token tersebut ditemukan.\n")
+
+def generate_wallet_phrase_evm(count):
+    print(Fore.MAGENTA + f"\nGenerasi {count} mnemonic phrase EVM...")
+    with open(PHRASE_FILE, "a", encoding='utf-8') as f:
+        for _ in range(count): _, mnemonic = Account.create_with_mnemonic(); f.write(f"{mnemonic}\n")
+    print(Fore.GREEN + f"✅ {count} mnemonic EVM telah disimpan ke {PHRASE_FILE}\n")
+
+def generate_wallet_private_key_evm(count):
+    print(Fore.MAGENTA + f"\nGenerasi {count} private key EVM...")
+    with open(PRIVATEKEY_EVM_FILE, "a", encoding='utf-8') as f:
+        for _ in range(count): acct = Account.create(); f.write(f"{'0x' + acct.key.hex()}\n")
+    print(Fore.GREEN + f"✅ {count} private key EVM telah disimpan ke {PRIVATEKEY_EVM_FILE}\n")
+
+def generate_wallet_private_key_tron(count):
+    print(Fore.MAGENTA + f"\nGenerasi {count} private key TRON...")
+    with open(PRIVATEKEY_TRON_FILE, "a", encoding='utf-8') as f:
+        for _ in range(count): pk = TronPrivateKey(os.urandom(32)); f.write(f"{pk.hex()}\n")
+    print(Fore.GREEN + f"✅ {count} private key TRON telah disimpan ke {PRIVATEKEY_TRON_FILE}\n")
+
+def _perform_evm_send(private_key, sender_address, target_address, token_symbol_from_file, _, token_contract_addr, token_decimals, chain_name):
+    try:
+        rpc_url = EVM_NETWORKS.get(chain_name)
+        if not rpc_url: return False
+        w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': 60}))
+        if not w3.is_connected(): return False
+        acct = Account.from_key(private_key)
+        contract = w3.eth.contract(address=w3.to_checksum_address(token_contract_addr), abi=ERC20_ABI)
+        balance = contract.functions.balanceOf(sender_address).call()
+        if balance == 0: return False
+        tx_dict = {'from': acct.address, 'nonce': w3.eth.get_transaction_count(acct.address), 'gas': 300000, 'gasPrice': w3.eth.gas_price}
+        if chain_name == 'zksync': tx_dict['chainId'] = w3.eth.chain_id
+        tx = contract.functions.transfer(w3.to_checksum_address(target_address), balance).build_transaction(tx_dict)
+        signed_tx = w3.eth.account.sign_transaction(tx, private_key)
+        tx_hash_hex = w3.eth.send_raw_transaction(signed_tx.raw_transaction).hex()
+        explorer_url = BLOCK_EXPLORER_URLS.get(chain_name, "")
+        clickable_url = f"{explorer_url}{tx_hash_hex}" if explorer_url else "N/A"
+        print(Fore.GREEN + f"✅ TX sent: {balance / (10**token_decimals):.4f} {token_symbol_from_file} -> {target_address}")
+        print(f"   Hash: {tx_hash_hex}\n   Verifikasi: {clickable_url}")
+        write_to_file("tx_log.txt", f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] TX_EVM | {chain_name.upper()} | From: {acct.address} | Hash: {tx_hash_hex}")
+        return True
+    except Exception as e:
+        if "insufficient funds" in str(e).lower(): print(f"❌ Gagal: Saldo native tidak cukup untuk gas di {chain_name.upper()}.")
+        else: print(f"❌ Gagal kirim {token_symbol_from_file}: {e}")
+        return False
+
+def send_detected_tokens_evm():
+    print(Fore.MAGENTA + "\n=== Kirim Token EVM dari Wallet yang Terdeteksi ===")
+    evm_files = [f for f in os.listdir(".") if f.startswith(EVM_OUTPUT_FILE_PREFIX) and f.endswith(".txt")]
+    if not evm_files:
+        print(Fore.RED + "❌ Tidak ada file hasil scan token EVM ditemukan.")
+        return
+    print(Fore.CYAN + "\nPilih file hasil scan:")
+    for idx, fname in enumerate(evm_files, 1): print(f"{idx}. {fname}")
+    try:
+        choice_idx = int(input("Masukkan nomor pilihan: ")) - 1
+        file_path = evm_files[choice_idx]
+        target_address = input("Masukkan alamat tujuan (EVM): ").strip()
+        if not Web3.is_address(target_address):
+            print(Fore.RED + "❌ Alamat tujuan EVM tidak valid.")
+            return
+        print(Fore.CYAN + f"\n--- Memproses file: {file_path} ---")
+        lines = load_lines(file_path)
+        for line in lines:
+            try:
+                parts = {k.strip(): v.strip() for k, v in (p.split(':', 1) for p in line.split('|'))}
+                print(f"\nProcessing: {parts['Address']} | {parts['Balance']} ({parts['Jaringan']})...")
+                _perform_evm_send(parts['Private Key'], parts['Address'], target_address, parts['Balance'].split()[1], float(parts['Balance'].split()[0]), parts['Contract'], int(parts['Decimals']), parts['Jaringan'].lower())
+                time.sleep(3)
+            except Exception as e: print(f"⚠️ Gagal memproses baris: '{line}'. Error: {e}")
+    except (ValueError, IndexError): print("❌ Pilihan tidak valid.")
+    except Exception as e: print(f"Terjadi kesalahan: {e}")
+
+def _private_key_to_tron_address(private_key):
+    try:
+        return TronPrivateKey(bytes.fromhex(private_key)).public_key.to_base58check_address()
+    except Exception: return None
+
+def scan_private_keys_evm_new():
+    print(Fore.CYAN + "\n[🔍] Memeriksa Private Key EVM dan mendapatkan alamatnya:")
+    private_keys = load_lines(PRIVATEKEY_EVM_FILE)
+    if not private_keys: return
+    with open(ADDR_EVM_OUT, 'w', encoding='utf-8') as f:
+        for i, pk_hex in enumerate(private_keys, 1):
+            try:
+                acct = Account.from_key(pk_hex)
+                address = acct.address
+                print(Fore.GREEN + f"[{i}] ✅ PrivateKey: {pk_hex[:10]}... | Address: {address}")
+                f.write(address + "\n")
+            except Exception as e:
+                print(Fore.RED + f"[{i}] ❌ Private Key EVM tidak valid: {pk_hex[:15]}... | Error: {e}")
+    print(Fore.CYAN + f"\n📁 Alamat EVM disimpan ke: {ADDR_EVM_OUT}")
+
+def scan_private_keys_tron_new():
+    print(Fore.CYAN + "\n[🔍] Memeriksa Private Key TRON dan mendapatkan alamatnya:")
+    private_keys = load_lines(PRIVATEKEY_TRON_FILE)
+    if not private_keys: return
+    with open(ADDR_TRON_OUT, 'w', encoding='utf-8') as f:
+        for i, pk_hex in enumerate(private_keys, 1):
+            try:
+                address = _private_key_to_tron_address(pk_hex)
+                if not address:
+                    raise ValueError("Gagal menghasilkan alamat dari private key")
+                print(Fore.GREEN + f"[{i}] ✅ PrivateKey: {pk_hex[:10]}... | Address: {address}")
+                f.write(address + "\n")
+            except Exception as e:
+                print(Fore.RED + f"[{i}] ❌ Private Key TRON tidak valid: {pk_hex[:15]}... | Error: {e}")
+    print(Fore.CYAN + f"\n📁 Alamat TRON disimpan ke: {ADDR_TRON_OUT}")
+
+def scan_tron_stablecoins():
+    print(Fore.CYAN + "=== CEK SALDO STABLECOIN TRON (VIA TRONSCAN API) ===")
+    STABLECOINS_TRON = {"USDT": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", "USDC": "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8", "TUSD": "TUpMhErZL4d8Pyb229UoCHcZzgsfG1r2p1"}
+    private_keys = load_lines(PRIVATEKEY_TRON_FILE)
+    if not private_keys: return
+    print(Fore.CYAN + f"\n🚀 Memulai scan untuk {len(private_keys)} wallet...")
+    all_found_wallets = []
+    for i, priv_key in enumerate(private_keys, start=1):
+        address = _private_key_to_tron_address(priv_key)
+        if not address:
+            print(Fore.RED + f"\n[{i}/{len(private_keys)}] ❌ Key tidak valid: {priv_key[:10]}...")
+            continue
+        print(Fore.CYAN + f"\n[{i}/{len(private_keys)}] Cek Alamat: {address}")
+        try:
+            url = f"https://apilist.tronscanapi.com/api/accountv2?address={address}"
+            data = requests.get(url, timeout=10).json()
+            balances_found = {}
+            if int(data.get('balance', 0)) / (10**6) > 0.01:
+                balances_found['TRX'] = {'balance': int(data.get('balance', 0)) / (10**6), 'contract': 'TRX', 'decimals': 6}
+            for token in data.get("trc20token_balances", []):
+                symbol, contract_addr = token.get("tokenAbbr", ""), token.get("tokenId", "")
+                if symbol in STABLECOINS_TRON and contract_addr == STABLECOINS_TRON[symbol]:
+                    balance = int(token.get("balance", "0")) / (10 ** int(token.get("tokenDecimal", 6)))
+                    if balance > 0.01:
+                        balances_found[symbol] = {"balance": balance, "contract": contract_addr, "decimals": int(token.get("tokenDecimal", 6))}
+            if balances_found:
+                for symbol, balance_data in balances_found.items():
+                    print(Fore.GREEN + f"     ✅ Saldo Ditemukan: {balance_data['balance']:.6f} {symbol}")
+                    output_line = f"Private Key: {priv_key} | Address: {address} | Balance: {balance_data['balance']:.4f} {symbol} | Contract: {balance_data['contract']} | Decimals: {balance_data['decimals']} | Jaringan: tron"
+                    write_to_file(f"wallet_berisi_{symbol.lower()}_tron.txt", output_line)
+                all_found_wallets.append(address)
+            else: print("     - Tidak ada saldo yang terdeteksi.")
+        except Exception as e:
+            print(Fore.RED + f"     [!] Error saat memproses alamat: {e}")
+        time.sleep(1)
+    print(Fore.CYAN + "\n\n--- Proses Scan TRON Selesai ---")
+    if not all_found_wallets: print("📭 Tidak ada wallet dengan saldo stablecoin yang terdeteksi.")
+    else: print(f"✅ Berhasil menemukan dan menyimpan saldo dari {len(all_found_wallets)} wallet.")
+
+def main_menu():
+    while True:
+        print(Fore.MAGENTA+"\n" + "="*120)
+        banner = pyfiglet.figlet_format("Tools By : Ruffff33", font="slant", width=200)
+        print(Fore.MAGENTA+ banner)
+        print(Fore.MAGENTA+Style.BRIGHT+"="*120)
+        print(Fore.BLACK+Style.BRIGHT+"0. Tes semua koneksi jaringan")
+        print(Fore.RED +"1. Scan Saldo Token (EVM & Solana)")
+        print(Fore.GREEN+"2. Kirim Token dari Wallet Terdeteksi")
+        print(Fore.YELLOW +"3. Generate wallet baru")
+        print(Fore.BLUE+"4. Cek Alamat Wallet (Private Key)")
+        print(Fore.MAGENTA+"5. Scan Saldo Stablecoin TRON")
+        print(Fore.CYAN+"6. Validasi & Bersihkan mnemonic")
+        print(Fore.WHITE +Style.BRIGHT+"7. Keluar")
+        print(Fore.MAGENTA + Style.BRIGHT+"="*30)
+        
+        pilihan = input(Fore.RED + "Pilih menu: ").strip()
+        print("\n")
+
+        if pilihan == "0":
+            cek_semua_rpc()
+        elif pilihan == "1":
+            print(Fore.CYAN + "\n--- Menu Scan Saldo Token ---\n1. EVM (Scan Token Kustom)\n2. Solana")
+            jaringan_choice = input("Pilih Jaringan (1/2): ").strip()
+            if jaringan_choice == '1': scan_custom_token_evm()
+            elif jaringan_choice == '2':
+                while True:
+                    print(Fore.CYAN + "\n--- Menu Scan Solana ---\n1. Cek Wallet Tunggal\n2. Scan Massal dari File\n0. Kembali")
+                    sol_scan_choice = input("Pilihan: ").strip()
+                    if sol_scan_choice == '1':
+                        address = input("Masukkan alamat wallet Solana: ")
+                        cek_saldo_sol(solana_client, address)
+                    elif sol_scan_choice == '2':
+                        print(Fore.CYAN + "\n--- Menu Scan Massal Solana ---\n1. Scan Saldo SOL\n2. Scan Saldo Token SPL\n0. Kembali")
+                        mass_choice = input("Pilihan: ").strip()
+                        if mass_choice == '1': scan_sol_balance_massal(solana_client)
+                        elif mass_choice == '2': scan_spl_token_massal(solana_client)
+                        elif mass_choice == '0': continue
+                    elif sol_scan_choice == '0': break
+        elif pilihan == "2":
+            print(Fore.WHITE + "\n--- Menu Kirim Token Terdeteksi ---\n1. Kirim EVM\n2. Kirim Solana")
+            send_choice = input("Pilih Jaringan (1/2): ").strip()
+            if send_choice == '1': send_detected_tokens_evm()
+            elif send_choice == '2': send_detected_tokens_solana()
+        elif pilihan == "3":
+            print(Fore.MAGENTA + "\n--- Generate Wallet Baru ---\n1. Mnemonic (EVM)\n2. Private Key (EVM)\n3. Private Key (TRON)\n4. Private Key (Solana)")
+            gen_choice = input("Pilihan: ").strip()
+            try:
+                jumlah = int(input("Jumlah yang ingin digenerate: "))
+                if gen_choice == '1': generate_wallet_phrase_evm(jumlah)
+                elif gen_choice == '2': generate_wallet_private_key_evm(jumlah)
+                elif gen_choice == '3': generate_wallet_private_key_tron(jumlah)
+                elif gen_choice == '4': generate_wallet_private_key_sol(jumlah)
+            except ValueError: print("Jumlah harus angka.")
+        elif pilihan == "4":
+            print(Fore.CYAN + "\n--- Cek Alamat dari Private Key ---\n1. Private Key (EVM)\n2. Private Key (TRON)\n3. Private Key (Solana)")
+            check_choice = input("Pilih jenis (1-3): ").strip()
+            if check_choice == '1':
+                scan_private_keys_evm_new()
+            elif check_choice == '2':
+                scan_private_keys_tron_new()
+            elif check_choice == '3':
+                scan_private_keys_sol_new()
+        elif pilihan == "5":
+            scan_tron_stablecoins()
+        elif pilihan == "6":
+            load_and_clean_phrases(show_detail=True)
+        elif pilihan == "7":
+            print("Terima kasih!")
+            sys.exit()
+        else:
+            print(Fore.RED + "Pilihan tidak valid.")
+
+if __name__ == "__main__":
+    main_menu()
