@@ -1,69 +1,122 @@
 
-README - Multi Blockchain Wallet Scanner & Token Manager
+# 🛡️ Multi Blockchain Wallet Scanner & Token Manager
 
-=========================================================
-📌 Deskripsi Singkat:
-Script ini digunakan untuk:
-- Memindai saldo token (EVM, Solana, Tron)
-- Mengirim token dari wallet dengan saldo
-- Membuat wallet baru (mnemonic atau private key)
-- Mengecek koneksi RPC jaringan
-- Mengelola dan memvalidasi mnemonic
-- Support token EVM (ERC20), SPL (Solana), TRC20 (Tron)
+Script Python ini digunakan untuk:
+- 🔍 **Memindai saldo token** di jaringan EVM (Ethereum, BSC, Polygon, dll), Solana, dan Tron
+- 🚀 **Mengirim token** dari wallet yang memiliki saldo
+- 🧩 **Membuat wallet baru** (mnemonic atau private key)
+- 🌐 **Mengecek koneksi semua jaringan RPC**
+- 🧹 **Memvalidasi dan membersihkan mnemonic**
+- 📄 **Scan saldo berdasarkan public address**
+- ✅ Support token:
+  - EVM (ERC20)
+  - Solana (SPL)
+  - Tron (TRC20)
 
-=========================================================
-📦 Ketergantungan / Requirements:
+---
 
-Instal semua dependensi dengan perintah:
+## 🛠️ Fitur Utama
 
+✅ Scan saldo token EVM (custom token ERC20)  
+✅ Scan saldo Solana (SOL & SPL Token)  
+✅ Scan stablecoin Tron (USDT, USDC, TUSD)  
+✅ Generate wallet baru  
+✅ Kirim token secara otomatis  
+✅ Deteksi alamat wallet dari private key
+
+---
+
+## 📂 Struktur File
+
+| File                                   | Deskripsi                                    |
+|----------------------------------------|----------------------------------------------|
+| `phrases.txt`                          | Daftar mnemonic EVM                         |
+| `privatekeyevmgarapan.txt`             | Daftar private key EVM                      |
+| `privatekeytron.txt`                   | Daftar private key Tron                     |
+| `privatekeysol.txt`                    | Daftar private key Solana                   |
+| `alamat_evm.txt`                       | Daftar alamat EVM untuk scan saldo          |
+| `alamat_solana.txt`                    | Daftar alamat Solana untuk scan saldo       |
+| `alamat_tron.txt`                      | Daftar alamat Tron untuk scan saldo         |
+| `wallet_berisi_*.txt`                  | Hasil scan saldo wallet                     |
+| `invalid_mnemonics.txt`                | Mnemonic tidak valid                        |
+| `hasil_scan_by_address.txt`            | Hasil scan berdasarkan alamat publik        |
+
+---
+
+## ⚠️ Dependencies & Instalasi
+
+**WAJIB Python >= 3.8**
+
+Install semua dependensi dengan:
+
+```
 pip install -r requirements.txt
+```
 
-Jika tidak punya file requirements.txt, install manual:
+Jika tidak punya `requirements.txt`, install manual:
 
-pip install -U web3 tronpy mnemonic bip44 colorama pyfiglet requests solana
+```
+pip install -U web3 tronpy mnemonic bip44 colorama pyfiglet requests
+```
 
-⚠️ PENTING UNTUK SOLANA:
-Script ini tidak support `solana-py` versi >= 0.3.x
+> 🟠 **PENTING UNTUK SOLANA:**
+>
+> Script ini **TIDAK support** `solana-py` versi 0.3.x.
+>
+> **WAJIB pakai versi 0.25.0:**
 
-WAJIB install versi 0.25.0:
-
+```
 pip uninstall solana -y
 pip install solana==0.25.0
+```
 
-=========================================================
-🔑 API KEY yang dibutuhkan:
+---
 
-1. API Alchemy (EVM RPC): [https://www.alchemy.com/](https://www.alchemy.com/)
-2. API Helius (Solana SPL token): [https://www.helius.xyz/](https://www.helius.xyz/)
-3. TronGrid API Key (opsional): [https://www.trongrid.io/](https://www.trongrid.io/)
+## 🔑 Konfigurasi API Key
 
-API key diset manual di awal script:
-- `HELIUS_API_KEY = ""`
-- `TRONGRID_API_KEY = ""`
+Script membutuhkan API Key berikut:
 
-Silakan isi manual dengan API key milikmu.
+| Jaringan     | API Key                               | Link Daftar / Ambil Key                                     |
+|--------------|---------------------------------------|------------------------------------------------------------|
+| EVM          | Alchemy RPC API Key                  | https://www.alchemy.com/                                   |
+| Solana       | Helius API Key                       | https://www.helius.xyz/                                    |
+| Tron         | TronGrid API Key (Opsional)          | https://www.trongrid.io/                                   |
 
-=========================================================
-🗂 File dan Struktur Penting:
+**Cara set:**
+Buka script `addres.py`, cari variabel berikut, dan isi manual:
 
-- `phrases.txt` : Daftar mnemonic EVM
-- `privatekeyevmgarapan.txt` : Daftar Private Key EVM
-- `privatekeysol.txt` : Daftar Private Key Solana
-- `privatekeytron.txt` : Daftar Private Key Tron
-- `alamat_evm.txt` / `alamat_solana.txt` / `alamat_tron.txt` : daftar alamat publik untuk scan saldo
-- `wallet_berisi_*.txt` : hasil scan saldo wallet
-- `invalid_mnemonics.txt` : log mnemonic tidak valid
-- `hasil_scan_by_address.txt` : hasil scan berdasarkan public address
+```
+HELIUS_API_KEY = "MASUKKAN_API_KEY_HELIUS"
+TRONGRID_API_KEY = "MASUKKAN_API_KEY_TRONGRID"
+```
 
-=========================================================
-▶️ Cara Menjalankan:
+---
 
-python namascript.py
+## ▶️ Cara Menjalankan
 
-Ikuti menu interaktif untuk memilih fitur.
+Jalankan script dengan:
 
-=========================================================
-📌 Catatan Tambahan:
-- Semua transaksi blockchain akan ditandatangani otomatis menggunakan private key.
-- Gunakan hanya untuk tujuan edukasi dan riset wallet pribadi.
-- Jangan gunakan untuk aktivitas ilegal.
+```
+python addres.py
+```
+
+Ikuti menu interaktif:
+
+```
+1. Scan Saldo Token
+2. Kirim Token
+3. Generate Wallet Baru
+4. Cek Alamat Wallet
+5. Scan Saldo Tron
+6. Validasi Mnemonic
+```
+
+---
+
+## ⚠️ Disclaimer
+
+Script ini dibuat untuk **penelitian, edukasi, dan manajemen wallet pribadi**.  
+**DILARANG** menggunakan untuk aktivitas ilegal.  
+Penulis tidak bertanggung jawab atas penyalahgunaan.
+
+---
