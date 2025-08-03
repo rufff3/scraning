@@ -70,7 +70,7 @@ def load_lines(filename):
     if not os.path.exists(filename):
         print(Fore.YELLOW + f"⚠️ File '{filename}' tidak ditemukan. Membuat file kosong untuk Anda.")
         with open(filename, 'w') as f:
-            pass # Buat file jika tidak ada
+            pass
         return []
     with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
         return [line.strip() for line in f if line.strip()]
@@ -804,3 +804,4 @@ def main_menu():
             print(Fore.RED + "Pilihan tidak valid.")
 if __name__ == "__main__":
     main_menu()
+
