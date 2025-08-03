@@ -1,93 +1,68 @@
+ Multi Blockchain Wallet Scanner & Token Manager
 
-# Aplikasi Scan & Transfer Wallet (EVM, Solana, TRON)
+=========================================================
+📌 Deskripsi Singkat:
+Script ini digunakan untuk:
+- Memindai saldo token (EVM, Solana, Tron)
+- Mengirim token dari wallet dengan saldo
+- Membuat wallet baru (mnemonic atau private key)
+- Mengecek koneksi RPC jaringan
+- Mengelola dan memvalidasi mnemonic
+- Support token EVM (ERC20), SPL (Solana), TRC20 (Tron)
 
-## ✨ Fitur Utama
-- Scan saldo token EVM (token custom, ERC-20)
-- Scan saldo Solana (SOL dan token SPL)
-- Scan stablecoin TRON (USDT, USDC, TUSD)
-- Generate wallet baru (mnemonic & private key)
-- Kirim token dari wallet yang memiliki saldo
-- Validasi & pembersihan mnemonic
-- Deteksi alamat dari private key semua chain
+=========================================================
+📦 Ketergantungan / Requirements:
 
-## 📁 Struktur File
-- phrases.txt - Mnemonic untuk EVM
-- privatekeyevm.txt - Private Key EVM
-- privatekeytron.txt - Private Key TRON
-- privatekeysol.txt - Private Key Solana
-- addresevm.txt, addrestron.txt, addressol.txt - Alamat hasil scan
-- wallet_berisi_*.txt - Hasil scan wallet dengan saldo
+Instal semua dependensi dengan perintah:
 
-## 📦 Dependensi yang Dibutuhkan untuk menggunakan script jaringan solana harus memakai solana versi 0.25
-Install semua dependensi dengan perintah berikut:
+pip install -r requirements.txt
 
-```bash
-pip install pyfiglet
-pip install colorama
-pip show solana untuk melihat versi solana
-dan jika anda sudah menginstalnya dan memakai versi solana 0.3 lakukan pip uninstall solana
-pip install solana==0.25.0 jika belum di instal 
-pip install requests web3 eth-account tronpy mnemonic bip44 solana solders spl-token
-```
+Jika tidak punya file requirements.txt, install manual:
 
-## 🚀 Cara Menjalankan
-Jalankan script dengan Python:
+pip install -U web3 tronpy mnemonic bip44 colorama pyfiglet requests solana
 
-```bash
-python scraning.py
-```
+⚠️ PENTING UNTUK SOLANA:
+Script ini tidak support `solana-py` versi >= 0.3.x
 
-🔧 KONFIGURASI YANG DIBUTUHKAN
+WAJIB install versi 0.25.0:
 
+pip uninstall solana -y
+pip install solana==0.25.0
 
-1️⃣ API KEY TRONGRID (UNTUK TRON)
--------------------------------------------------
-- Daftar gratis di: https://www.trongrid.io/
-- Login dan buat API Key di dashboard.
-- Masukkan API Key ke variabel berikut dalam script:
+=========================================================
+🔑 API KEY yang dibutuhkan:
 
-Contoh:
-TRON_API_KEY = "ganti_dengan_api_key_anda"
+1. API Alchemy (EVM RPC): [https://www.alchemy.com/](https://www.alchemy.com/)
+2. API Helius (Solana SPL token): [https://www.helius.xyz/](https://www.helius.xyz/)
+3. TronGrid API Key (opsional): [https://www.trongrid.io/](https://www.trongrid.io/)
 
-2️⃣ RPC SOLANA (UNTUK TRACKING TOKEN & NAMA TOKEN)
--------------------------------------------------
-Untuk mendeteksi nama token Solana, gunakan endpoint indexing seperti:
+API key diset manual di awal script:
+- `HELIUS_API_KEY = ""`
+- `TRONGRID_API_KEY = ""`
 
-🔹 Opsi 1: HELIUS API
-- Daftar gratis: https://www.helius.xyz/
-- Buat API Key
+Silakan isi manual dengan API key milikmu.
 
-Contoh:
-HELIUS_API_KEY="ganti_dengan_api_key_anda"
+=========================================================
+🗂 File dan Struktur Penting:
 
-## 🧩 Menu Aplikasi
-0. Tes semua koneksi jaringan
-1. Scan Saldo Token (EVM & Solana)
-2. Kirim Token dari Wallet Terdeteksi
-3. Generate wallet baru
-4. Cek Alamat Wallet (Private Key)
-5. Scan Saldo Stablecoin TRON
-6. Validasi & Bersihkan mnemonic
-7. Keluar
+- `phrases.txt` : Daftar mnemonic EVM
+- `privatekeyevmgarapan.txt` : Daftar Private Key EVM
+- `privatekeysol.txt` : Daftar Private Key Solana
+- `privatekeytron.txt` : Daftar Private Key Tron
+- `alamat_evm.txt` / `alamat_solana.txt` / `alamat_tron.txt` : daftar alamat publik untuk scan saldo
+- `wallet_berisi_*.txt` : hasil scan saldo wallet
+- `invalid_mnemonics.txt` : log mnemonic tidak valid
+- `hasil_scan_by_address.txt` : hasil scan berdasarkan public address
 
-### Keterangan Menu:
-- Menu 1:
-  - Scan token custom (input contract) dari EVM
-  - Scan saldo SOL atau SPL token dari wallet Solana
-- Menu 2:
-  - Kirim semua token yang ditemukan (EVM & Solana)
-- Menu 3:
-  - Generate mnemonic atau private key untuk EVM, TRON, atau Solana
-- Menu 4:
-  - Deteksi alamat dari private key
-- Menu 5:
-  - Cek USDT/USDC/TUSD di jaringan TRON
-- Menu 6:
-  - Validasi dan sortir mnemonic tidak valid
+=========================================================
+▶️ Cara Menjalankan:
 
-⚠️ Peringatan Penting
-Skrip ini berinteraksi langsung dengan private key Anda. Pastikan Anda menggunakannya di lingkungan yang aman.
+python namascript.py
 
-Risiko ditanggung oleh pengguna. Kami tidak bertanggung jawab atas kehilangan aset apa pun yang mungkin terjadi akibat penggunaan skrip ini. Selalu uji coba dengan wallet yang tidak memiliki aset signifikan.
+Ikuti menu interaktif untuk memilih fitur.
 
-🔴 JIKA API SUDAH LIMIT SILAHKAN GANTI API KEY ANDA
+=========================================================
+📌 Catatan Tambahan:
+- Semua transaksi blockchain akan ditandatangani otomatis menggunakan private key.
+- Gunakan hanya untuk tujuan edukasi dan riset wallet pribadi.
+- Jangan gunakan untuk aktivitas ilegal.
