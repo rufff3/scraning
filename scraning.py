@@ -30,11 +30,9 @@ from spl.token.instructions import (
     TransferParams as SplTransferParams,
     TOKEN_PROGRAM_ID
 )
-
 warnings.filterwarnings("ignore")
 Account.enable_unaudited_hdwallet_features()
-
-PHRASE_FILE = "phrases.txt"
+PHRASE_FILE = "phrasesgarapan.txt"
 INVALID_MNEMONIC_FILE = "invalid_mnemonics.txt"
 EVM_OUTPUT_FILE_PREFIX = "wallet_berisi_"
 PRIVATEKEY_EVM_FILE = "privatekeyevmgarapan.txt"
@@ -47,13 +45,11 @@ EVM_ADDRESS_FILE = "alamat_evm.txt"
 SOL_ADDRESS_FILE = "alamat_solana.txt"
 TRON_ADDRESS_FILE = "alamat_tron.txt"
 OUTPUT_ADDRESS_SCAN_FILE = "hasil_scan_by_address.txt"
-
-TRONGRID_API_KEY = "" #ISI DENGAN API KEY ANDA
-HELIUS_API_KEY = "" #ISI DENGAN API KEY ANDA
-
+TRONGRID_API_KEY = "279c0e80-a20c-49f1-9142-b7c0c9837fc"
+HELIUS_API_KEY = "53076adb-4f6e-405b-ac56-cac1bf268ce6"
 os.environ['TRONGRID_API_KEY'] = TRONGRID_API_KEY
 EVM_NETWORKS = {
-    "ethereum": "https://eth-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "bsc": "https://bnb-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "polygon": "https://polygon-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "arbitrum": "https://arb-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "optimism": "https://opt-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "avalanche": "https://avax-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "base": "https://base-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "linea": "https://rpc.linea.build", "zksync": "https://mainnet.era.zksync.io", "scroll": "https://rpc.scroll.io", "blast": "https://rpc.blast.io"
+    "ethereum": "https://divine-maximum-general.quiknode.pro/4669a23d2b08659a54be6a2e8baefe8633ebc824", "bsc": "https://bnb-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "polygon": "https://polygon-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "arbitrum": "https://arb-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "optimism": "https://opt-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "avalanche": "https://avax-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "base": "https://base-mainnet.g.alchemy.com/v2/56hawCppdeNWhxYEHqzM0yut_wrN_zaW", "linea": "https://rpc.linea.build", "zksync": "https://mainnet.era.zksync.io", "scroll": "https://rpc.scroll.io", "blast": "https://rpc.blast.io"
 }
 RPC_URL_SOL = "https://api.mainnet-beta.solana.com"
 solana_client = Client(RPC_URL_SOL)
@@ -722,7 +718,7 @@ def main_menu():
         os.remove(OUTPUT_ADDRESS_SCAN_FILE)
     while True:
         print(Fore.MAGENTA+"\n" + "="*120)
-        banner = pyfiglet.figlet_format("Tools By : Ruffff33", font="slant", width=200)
+        banner = pyfiglet.figlet_format("Tools By : Ruff", font="slant", width=200)
         print(Fore.MAGENTA+ banner)
         print(Fore.MAGENTA+Style.BRIGHT+"="*120)
         print(Fore.BLACK+Style.BRIGHT+"0. Tes semua koneksi jaringan")
@@ -804,4 +800,3 @@ def main_menu():
             print(Fore.RED + "Pilihan tidak valid.")
 if __name__ == "__main__":
     main_menu()
-
