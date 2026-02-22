@@ -906,7 +906,7 @@ def cari_phrasa_dari_address_target():
     except FileNotFoundError:
         print(Fore.RED + f"Error: File '{PHRASE_FILE}' tidak ditemukan.")
 
-# === MENU UTAMA (POSISI 7 dan 8 DITUKAR) ===
+# === MENU UTAMA
 def main_menu():
     if os.path.exists(OUTPUT_ADDRESS_SCAN_FILE):
         os.remove(OUTPUT_ADDRESS_SCAN_FILE)
@@ -922,8 +922,8 @@ def main_menu():
         print(Fore.BLUE+"4. Cek Alamat Wallet (dari Private Key)")
         print(Fore.MAGENTA+"5. Scan Saldo TRON")
         print(Fore.CYAN+"6. Validasi & Bersihkan mnemonic")
-        print(Fore.YELLOW+"7. Cari Phrasa dari Address (Baru)") # Menu Tukar Posisi
-        print(Fore.WHITE+"8. Keluar") # Menu Tukar Posisi
+        print(Fore.YELLOW+"7. Cari Phrasa dari Address (Baru)")
+        print(Fore.WHITE+"8. Keluar")
         print(Fore.MAGENTA + Style.BRIGHT+"="*30)
         
         pilihan = input(Fore.RED + "Pilih menu: ").strip()
@@ -990,13 +990,14 @@ def main_menu():
                     break
         elif pilihan == "6":
             load_and_clean_phrases(show_detail=True)
-        elif pilihan == "7": # Logic Menu Ditukar
+        elif pilihan == "7":
             cari_phrasa_dari_address_target()
-        elif pilihan == "8": # Logic Menu Ditukar
+        elif pilihan == "8":
             print("Terima kasih!")
             sys.exit()
         else:
             print(Fore.RED + "Pilihan tidak valid.")
 
 if __name__ == "__main__":
+
     main_menu()
